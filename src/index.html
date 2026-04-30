@@ -9,7 +9,24 @@
 </head>
 <body>
     <div id="app"></div>
-    <script src="js/tizen-shim.js"></script>
+    <script src="js/core/platform.js"></script>
+    <script>
+        // Tizen-specific: register color + media keys so keydown events fire.
+        // Lives outside the synced source because it touches a Tizen-only API
+        // surface (tizen.tvinputdevice). On webOS this script tag wouldn't
+        // exist; here it's harmless because Platform.isTizen guards it.
+        (function () {
+            if (window.Platform && window.Platform.isTizen &&
+                typeof tizen !== 'undefined' && tizen.tvinputdevice) {
+                var keys = ['ColorF0Red', 'ColorF1Green', 'ColorF2Yellow', 'ColorF3Blue',
+                            'MediaPlayPause', 'MediaPlay', 'MediaPause', 'MediaStop',
+                            'MediaFastForward', 'MediaRewind', 'ChannelUp', 'ChannelDown'];
+                for (var i = 0; i < keys.length; i++) {
+                    try { tizen.tvinputdevice.registerKey(keys[i]); } catch (e) {}
+                }
+            }
+        })();
+    </script>
     <script src="js/app.js"></script>
 </body>
 </html>
