@@ -77,3 +77,23 @@ with reverse-domain conventions.
   is 80×80) and rescale, or commission a fresh 117² asset.
 - The WebOS `appinfo.json` is intentionally NOT synced — it's WebOS-specific
   and would conflict with Tizen's `config.xml`.
+
+## Next steps (post-scaffold)
+
+The repo is scaffolded locally and committed. Remaining one-time setup
+operations require user account credentials and are NOT auto-runnable:
+
+```bash
+# 1. Create the GitHub repo (run from a host with `gh` authenticated)
+gh repo create webwest/vyon-iptv-tizen --private --source=. --remote=origin
+
+# 2. Push the initial commit
+git push -u origin main
+
+# 3. (Optional) Add CI workflow per Phase 3.4 of the cross-platform plan
+mkdir -p .github/workflows
+# … paste ci.yml content from docs/plans/2026-04-30-cross-platform-testing-pipelines.md
+```
+
+A 117×117 `src/icon.png` and a Samsung Seller Office signing certificate
+are also required before `./build-tizen.sh` can produce a publishable `.wgt`.
