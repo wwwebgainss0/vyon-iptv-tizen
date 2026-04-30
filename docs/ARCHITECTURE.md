@@ -22,20 +22,39 @@ Symlinks across `../ultralight-iptv-webos/` and `vyon-iptv-tizen/src/` are
 not portable on Windows and don't survive `git clone` cleanly. We pay the
 cost of a copy + a sync script in exchange for cross-platform reproducibility.
 
-## The shim layer (`src/js/tizen-shim.js`)
+## Platform abstraction (synced from webOS)
 
-Loaded BEFORE `app.js` in `index.html`. Provides:
+Loaded BEFORE `app.js` in `index.html`. Lives at `src/js/core/platform.js`
+and is part of the synced source — there is no Tizen-only shim file. The
+runtime detects whether `tizen` or `webOS` globals exist and routes each
+call accordingly. Provides:
 
-| Concern | WebOS | Tizen | Shim exposes |
+| Concern | WebOS | Tizen | Platform exposes |
 |---|---|---|---|
-| Color/media key registration | implicit | `tizen.tvinputdevice.registerKey(...)` | runs at script-load |
-| Back button | `webOS.platformBack = fn` | `document.addEventListener('tizenhwkey', ...)` | `window.PlatformBack(fn)` |
-| App exit | `window.close()` | `tizen.application.getCurrentApplication().exit()` | `window.PlatformExit()` |
+| Back button | `webOS.platformBack = fn` | `document.addEventListener('tizenhwkey', ...)` | `Platform.onBack(fn)` |
+| App exit | `window.close()` | `tizen.application.getCurrentApplication().exit()` | `Platform.exit()` |
+| Device info | `webOS.deviceInfo(cb)` | `tizen.systeminfo.getPropertyValue('BUILD', cb)` | `Platform.getDeviceInfo(cb)` |
+| Serial number | `webOS.service.request('luna://com.webos.service.sm', ...)` | `tizen.systeminfo.getPropertyValue('DEVICE_INFO', cb)` | `Platform.getSerialNumber(cb)` |
+| External app launch | `luna://com.webos.applicationManager/launch` | `tizen.application.launch(appId, ...)` | `Platform.launchExternalApp({webos, tizen}, params, cb)` |
 
-The WebOS code currently calls `webOS.platformBack` directly. Future iteration
-should replace those call sites with `window.PlatformBack(...)` so the WebOS
-build also goes through the shim — at which point the shim can become the
-single platform-detection point.
+Platform detection happens once at script load:
+- `Platform.name` is `'webos'`, `'tizen'`, or `'browser'`
+- `Platform.isWebOS` / `Platform.isTizen` are convenience booleans
+
+For the full contract see
+`../ultralight-iptv-webos/docs/PLATFORM-API.md` (synced sibling repo).
+For per-platform deltas (color keys, build pipelines, store conventions)
+see [TIZEN-VS-WEBOS-DELTA.md](TIZEN-VS-WEBOS-DELTA.md).
+
+### Color / media key registration
+
+Tizen requires `tizen.tvinputdevice.registerKey('ColorF0Red', ...)` etc. for
+the color and media-transport keys to fire keydown events. webOS has no
+equivalent — keys fire automatically. To keep the synced source platform-
+agnostic, the registration call lives in an inline `<script>` block in
+`src/index.html` (the only file that's Tizen-only), guarded by
+`Platform.isTizen`. The block is loaded after `core/platform.js` and
+before `app.js`.
 
 ## Build pipeline
 
