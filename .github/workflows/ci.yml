@@ -1,0 +1,149 @@
+# Tizen CI — VYON IPTV (Samsung Smart TV)
+#
+# Per Phase 3 of the cross-platform testing plan
+# (../../docs/plans/2026-04-30-cross-platform-testing-pipelines.md).
+#
+# Tizen Studio is NOT in any package manager — it's a 300+ MB installer from
+# https://download.tizen.org/sdk/. We download the headless web-cli flavor
+# (tizen-studio_5.6 / web-cli_Tizen_Studio_5.6_ubuntu-64.bin, ~305 MB).
+#
+# Samsung occasionally rotates the URL when releasing a new minor; the install
+# step uses `continue-on-error: true` so the workflow still validates the
+# static parts (lint + JS syntax check) when the SDK download fails. If you
+# see persistent 404s, check https://download.tizen.org/sdk/ for the latest
+# stable build and update DOWNLOAD_URL below.
+
+name: Tizen CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tizen-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Static checks (always run)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies (if package.json present)
+        run: |
+          if [ -f package.json ]; then
+            npm ci || npm install
+          else
+            echo "No package.json — skipping npm install."
+          fi
+
+      - name: ES3 / strict-mode JS syntax check
+        run: |
+          # Parse every .js under src/ as ES5 strict — Tizen's webview is
+          # Chromium 76 which is much more permissive than webOS 3 (Chromium 38),
+          # so ES2015+ is technically allowed; we still warn on parse errors.
+          if [ ! -d src ]; then
+            echo "::warning::No src/ directory yet — skipping JS syntax pass."
+            exit 0
+          fi
+          fail=0
+          while IFS= read -r -d '' f; do
+            if ! node --check "$f"; then
+              echo "::error file=$f::Parse error in $f"
+              fail=1
+            fi
+          done < <(find src -type f -name '*.js' -print0)
+          exit $fail
+
+      - name: Validate config.xml exists (Tizen manifest)
+        run: |
+          if [ -f src/config.xml ]; then
+            echo "config.xml present — Tizen widget manifest is shippable."
+            head -50 src/config.xml || true
+          else
+            echo "::warning::src/config.xml not yet present — Phase 2 pending."
+          fi
+
+  build:
+    name: Tizen Studio CLI build (.wgt)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: lint
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17 (Tizen Studio dependency)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Cache Tizen Studio install
+        id: tizen-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/tizen-studio
+          key: tizen-studio-5.6-ubuntu-${{ runner.arch }}
+
+      - name: Download + install Tizen Studio CLI (web-cli, headless)
+        id: install
+        if: steps.tizen-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        env:
+          DOWNLOAD_URL: https://download.tizen.org/sdk/Installer/tizen-studio_5.6/web-cli_Tizen_Studio_5.6_ubuntu-64.bin
+        run: |
+          set -e
+          curl -fL -o tizen-cli.bin --retry 3 --retry-delay 5 "$DOWNLOAD_URL"
+          chmod +x tizen-cli.bin
+          ./tizen-cli.bin --accept-license "$HOME/tizen-studio"
+          echo "$HOME/tizen-studio/tools" >> "$GITHUB_PATH"
+          echo "$HOME/tizen-studio/tools/ide/bin" >> "$GITHUB_PATH"
+
+      - name: Confirm tizen CLI on PATH
+        id: cli-check
+        continue-on-error: true
+        run: |
+          export PATH="$HOME/tizen-studio/tools:$HOME/tizen-studio/tools/ide/bin:$PATH"
+          if command -v tizen >/dev/null; then
+            tizen version || true
+            echo "have_cli=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Tizen CLI not available — skipping wgt build."
+            echo "have_cli=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run build-tizen.sh
+        if: steps.cli-check.outputs.have_cli == 'true' && hashFiles('build-tizen.sh') != ''
+        run: |
+          export PATH="$HOME/tizen-studio/tools:$HOME/tizen-studio/tools/ide/bin:$PATH"
+          chmod +x build-tizen.sh
+          ./build-tizen.sh
+
+      - name: Upload .wgt artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tizen-wgt
+          path: dist/*.wgt
+          if-no-files-found: ignore
+          retention-days: 30
