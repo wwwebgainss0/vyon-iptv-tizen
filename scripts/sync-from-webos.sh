@@ -7,9 +7,13 @@
 # Source of truth: ../ultralight-iptv-webos/dist/modern-neu/{js,css}
 # Destination: src/{js,css}
 #
-# Preserves our own files:
-#   - src/js/tizen-shim.js  (NEVER overwritten)
-#   - src/js/app.js         (regenerated from src/js/core/app-main.js)
+# Tizen-specific bootstrap (`src/index.html`, `src/config.xml`) lives outside
+# the synced tree and is never touched. The Platform abstraction
+# (`src/js/core/platform.js`) is itself part of the synced source — Tizen
+# detection happens there at runtime.
+#
+# Note: `src/js/app.js` is regenerated from `src/js/core/app-main.js` after
+# the rsync, since the Tizen entry point uses a flatter path.
 #
 # Requires: rsync. On Windows, run from WSL or Git-Bash with rsync available.
 
@@ -29,8 +33,7 @@ if ! command -v rsync >/dev/null 2>&1; then
     exit 1
 fi
 
-rsync -av --delete --exclude='.DS_Store' "$WEBOS_SRC/js/" src/js/ \
-    --exclude='tizen-shim.js'  # never overwrite our shim
+rsync -av --delete --exclude='.DS_Store' "$WEBOS_SRC/js/" src/js/
 rsync -av --delete "$WEBOS_SRC/css/" src/css/
 
 # Note: app-main.js entry point is renamed to app.js in our index.html

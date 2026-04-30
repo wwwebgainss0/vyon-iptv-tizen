@@ -260,7 +260,7 @@ window.SettingsScreen = (function() {
             var displayValue = getDisplayValue(option, value);
 
             html += '<div class="settings-option' + focusedClass + '" data-index="' + i + '">';
-            html += '  <div class="settings-option-label">' + option.label + '</div>';
+            html += '  <div class="settings-option-label">' + getOptionLabel(option) + '</div>';
             html += '  <div class="settings-option-value">';
 
             if (option.type === 'toggle') {
@@ -351,21 +351,64 @@ window.SettingsScreen = (function() {
         return String(value);
     }
 
+    // Resolve the visible label for an option. The 'webosVersion' option
+    // re-labels itself depending on the runtime platform (WebOS vs Tizen).
+    // i18n keys must exist in all locale files.
+    function getOptionLabel(option) {
+        if (option.id === 'webosVersion' && window.Platform && window.Platform.isTizen) {
+            if (window.i18n && typeof window.i18n.t === 'function') {
+                var translated = window.i18n.t('settings.tizen_version');
+                if (translated && translated !== 'settings.tizen_version') {
+                    return translated;
+                }
+            }
+            return 'Tizen Version';
+        }
+        return option.label;
+    }
+
+    // Cached at first read via Platform.getDeviceInfo. Subsequent calls
+    // return the cache. (The settings screen renders re-entrantly so we
+    // populate lazily rather than at boot.)
+    var deviceInfoCache = null;
+    function ensureDeviceInfo() {
+        if (deviceInfoCache) {
+            return deviceInfoCache;
+        }
+        deviceInfoCache = { model: '', osVersion: '' };
+        if (window.Platform && typeof window.Platform.getDeviceInfo === 'function') {
+            window.Platform.getDeviceInfo(function (info) {
+                if (info) {
+                    deviceInfoCache.model = info.model || '';
+                    deviceInfoCache.osVersion = info.osVersion || '';
+                }
+                // Re-render so the freshly-loaded cache is shown.
+                if (state.isVisible) {
+                    renderMain();
+                }
+            });
+        }
+        return deviceInfoCache;
+    }
+
     function getDeviceModel() {
-        if (window.webOS && window.webOS.deviceInfo) {
-            try {
-                var info = window.webOS.deviceInfo;
-                return info.modelName || info.model || 'LG Smart TV';
-            } catch (e) {}
+        var info = ensureDeviceInfo();
+        if (info.model) {
+            return info.model;
+        }
+        if (window.Platform && window.Platform.isTizen) {
+            return 'Samsung Smart TV';
         }
         return 'LG Smart TV';
     }
 
     function getWebOSVersion() {
-        if (window.webOS && window.webOS.deviceInfo) {
-            try {
-                return window.webOS.deviceInfo.sdkVersion || '3.x';
-            } catch (e) {}
+        var info = ensureDeviceInfo();
+        if (info.osVersion) {
+            return info.osVersion;
+        }
+        if (window.Platform && window.Platform.isTizen) {
+            return 'Tizen';
         }
         return '3.x';
     }
@@ -1107,56 +1150,27 @@ window.SettingsScreen = (function() {
 
     // ===== OPEN APP STORE =====
     function openAppStore() {
-        showToast('Öffne LG Content Store...');
-
-        // Try different store app IDs for different WebOS versions
-        var storeIds = [
-            'com.webos.app.discover',      // WebOS 3.x+
-            'com.lge.app.appstore',         // Older WebOS
-            'com.palm.app.appstore'         // Legacy
-        ];
+        showToast('Öffne Store...');
 
         var appId = 'com.jam.iptv8';
-        var launched = false;
+        // Per-platform store-app hints. Tizen path is a PLACEHOLDER -
+        // verify against your Samsung TV's Smart Hub before release.
+        var appHints = {
+            webos: 'com.webos.app.discover',
+            tizen: 'com.samsung.tv.store'
+        };
 
-        function tryLaunchStore(index) {
-            if (index >= storeIds.length) {
-                showToast('Bitte im LG Store nach "Ultra IPTV" suchen');
-                return;
-            }
-
-            var storeAppId = storeIds[index];
-            var params = JSON.stringify({
-                id: storeAppId,
-                params: { id: appId }
-            });
-
-            if (window.PalmServiceBridge) {
-                try {
-                    var bridge = new PalmServiceBridge();
-                    bridge.onservicecallback = function(response) {
-                        try {
-                            var result = JSON.parse(response);
-                            if (result.returnValue === true) {
-                                showToast('LG Store geöffnet');
-                            } else {
-                                // Try next store ID
-                                tryLaunchStore(index + 1);
-                            }
-                        } catch (e) {
-                            tryLaunchStore(index + 1);
-                        }
-                    };
-                    bridge.call('luna://com.webos.applicationManager/launch', params);
-                } catch (e) {
-                    tryLaunchStore(index + 1);
+        if (window.Platform && typeof window.Platform.launchExternalApp === 'function') {
+            window.Platform.launchExternalApp(appHints, { id: appId }, function (success) {
+                if (success) {
+                    showToast('Store geöffnet');
+                } else {
+                    showToast('Bitte im Store nach "Ultra IPTV" suchen');
                 }
-            } else {
-                showToast('Bitte im LG Store nach "Ultra IPTV" suchen');
-            }
+            });
+        } else {
+            showToast('Bitte im Store nach "Ultra IPTV" suchen');
         }
-
-        tryLaunchStore(0);
     }
 
     function showSupportDialog() {

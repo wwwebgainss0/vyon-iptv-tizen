@@ -6,28 +6,30 @@ VYON IPTV Player for Samsung Smart TVs (Tizen 6.x+).
 
 Samsung's Tizen platform ships Chromium 76, which is dramatically newer than
 LG webOS 3.x's Chromium 38. We can therefore reuse the WebOS source tree
-(`../ultralight-iptv-webos/dist/modern-neu/`) as-is, plus a small Tizen-only
-adapter (`src/js/tizen-shim.js`).
+(`../ultralight-iptv-webos/dist/modern-neu/`) as-is. Cross-platform
+differences are routed through `src/js/core/platform.js` (synced from the
+WebOS source — see [docs/TIZEN-VS-WEBOS-DELTA.md](docs/TIZEN-VS-WEBOS-DELTA.md)).
 
-The ES3 constraint that pins the WebOS-side code does **not** apply to the
-shim layer — the shim is allowed to use modern syntax.
+The ES3 constraint that pins the WebOS-side code applies to the shared source
+as well, so the same files run on both targets without preprocessing.
 
 ## Layout
 
 ```
 vyon-iptv-tizen/
 ├── src/
-│   ├── config.xml         # Tizen App manifest (W3C Widget format)
-│   ├── index.html         # Entry — loads tizen-shim.js BEFORE app.js
-│   ├── js/                # Synced from ../ultralight-iptv-webos/dist/modern-neu/js/
-│   │   ├── tizen-shim.js  # Tizen-specific platform adapter (NOT overwritten by sync)
-│   │   └── app.js         # Renamed copy of src/js/core/app-main.js
-│   └── css/               # Synced from WebOS dist/modern-neu/css/
+│   ├── config.xml             # Tizen App manifest (W3C Widget format)
+│   ├── index.html             # Entry — loads js/core/platform.js BEFORE app.js
+│   ├── js/                    # Synced from ../ultralight-iptv-webos/dist/modern-neu/js/
+│   │   ├── core/platform.js   # Platform abstraction (synced; detects tizen vs webos)
+│   │   └── app.js             # Renamed copy of src/js/core/app-main.js
+│   └── css/                   # Synced from WebOS dist/modern-neu/css/
 ├── scripts/
-│   └── sync-from-webos.sh # Re-sync the WebOS source tree into src/
-├── build-tizen.sh         # Produces dist/com.vyoniptv.tizen_<version>.wgt
+│   └── sync-from-webos.sh     # Re-sync the WebOS source tree into src/
+├── build-tizen.sh             # Produces dist/com.vyoniptv.tizen_<version>.wgt
 └── docs/
-    └── ARCHITECTURE.md    # Adapter pattern, build flow, signing
+    ├── ARCHITECTURE.md        # Reuse model, build flow, signing
+    └── TIZEN-VS-WEBOS-DELTA.md # Per-platform delta from a Tizen perspective
 ```
 
 ## Build
@@ -46,7 +48,9 @@ named `VYON`. See `docs/ARCHITECTURE.md` for setup.
 ./scripts/sync-from-webos.sh
 ```
 
-The shim (`src/js/tizen-shim.js`) is preserved across syncs.
+All shared files (including `src/js/core/platform.js`) are pulled from the
+WebOS `dist/modern-neu/` tree. Only Tizen-specific bootstrap files
+(`src/index.html`, `src/config.xml`) live outside the synced tree.
 
 ## Target
 

@@ -428,14 +428,16 @@ window.IPTVApp = (function() {
             return false;
         });
 
-        // Handle webOS.platformBack - route to NavigationStack
-        if (window.webOS && window.webOS.platformBack) {
-            window.webOS.platformBack = function() {
+        // Route platform back-button through Platform abstraction.
+        // On webOS this rebinds window.webOS.platformBack; on Tizen it
+        // attaches a tizenhwkey listener. Single point of registration.
+        if (window.Platform && window.Platform.onBack) {
+            window.Platform.onBack(function () {
                 if (window.NavigationStack) {
                     window.NavigationStack.handleBack();
                 }
                 // Never call window.history.back() - prevents app exit
-            };
+            });
         }
 
         // NO additional keydown handler here!
