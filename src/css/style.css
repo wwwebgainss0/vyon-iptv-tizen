@@ -1,0 +1,390 @@
+/* Jam IPTV Player - Main Styles for WebOS TV */
+/* Optimized for performance on WebOS devices */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: #141414;
+    color: #fff;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    scroll-behavior: smooth;
+}
+
+/* Hide scrollbars */
+::-webkit-scrollbar {
+    display: none;
+}
+
+/* Netflix Header */
+.header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 68px;
+    background: linear-gradient(180deg, rgba(0,0,0,0.7) 10%, transparent);
+    z-index: 100;
+    padding: 0 4%;
+    display: flex;
+    align-items: center;
+    transition: background 0.4s;
+}
+
+.header.scrolled {
+    background: rgb(20, 20, 20);
+}
+
+.logo {
+    color: #e50914;
+    font-size: 28px;
+    font-weight: bold;
+    margin-right: 40px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.nav {
+    display: flex;
+    gap: 20px;
+    flex: 1;
+}
+
+.nav-item {
+    color: #e5e5e5;
+    font-size: 14px;
+    transition: color 0.4s;
+    cursor: pointer;
+    padding: 5px 10px;
+}
+
+.nav-item.active,
+.nav-item:hover {
+    color: #fff;
+}
+
+/* Hero Section */
+.hero {
+    position: relative;
+    height: 56vh;
+    width: 100%;
+    overflow: hidden;
+}
+
+.hero-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(77deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.3) 85%),
+                linear-gradient(0deg, #141414 0%, transparent 60%);
+}
+
+.hero-image {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.8;
+}
+
+.hero-content {
+    position: absolute;
+    bottom: 35%;
+    left: 4%;
+    z-index: 10;
+    max-width: 500px;
+}
+
+.hero-title {
+    font-size: 3.5vw;
+    font-weight: 700;
+    margin-bottom: 20px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+}
+
+.hero-description {
+    font-size: 1.4vw;
+    font-weight: 400;
+    line-height: 1.4;
+    margin-bottom: 30px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+}
+
+.hero-buttons {
+    display: flex;
+    gap: 15px;
+}
+
+.btn {
+    padding: 12px 30px;
+    font-size: 1.2vw;
+    font-weight: 600;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.btn-play {
+    background: #fff;
+    color: #000;
+}
+
+.btn-play:hover {
+    background: rgba(255, 255, 255, 0.75);
+}
+
+.btn-info {
+    background: rgba(109, 109, 110, 0.7);
+    color: #fff;
+}
+
+.btn-info:hover {
+    background: rgba(109, 109, 110, 0.4);
+}
+
+/* Content Rows */
+.content-rows {
+    position: relative;
+    margin-top: -120px;
+    z-index: 5;
+    padding-bottom: 50px;
+}
+
+.row {
+    margin: 3vw 0;
+    padding: 0 4%;
+}
+
+.row-title {
+    font-size: 1.4vw;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.row-container {
+    position: relative;
+}
+
+/* Netflix-style carousel optimized for TV performance */
+.row-items {
+    position: relative;
+    overflow: hidden;
+    padding: 10px 50px 10px 0;
+    margin: 0 -50px 0 0;
+}
+
+.row-items-inner {
+    display: flex;
+    gap: 10px;
+    padding-left: 30px;
+    transform: translate3d(0, 0, 0);
+    will-change: transform;
+    transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+/* Cards */
+.card {
+    flex: 0 0 auto;
+    width: 250px;
+    height: 140px;
+    background: #2f2f2f;
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    scroll-snap-align: start;
+    will-change: transform;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+}
+
+.card-image {
+    position: relative;
+    background: #1a1a1a;
+    height: 120px;
+    overflow: hidden;
+}
+
+.channel-logo {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: 10px;
+}
+
+.card-fallback {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.card-gradient {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 600;
+    border-radius: 8px;
+}
+
+.card-info {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 10px;
+    background: linear-gradient(0deg, rgba(0,0,0,0.9) 0%, transparent 100%);
+    transform: translateY(100%);
+    transition: transform 0.3s;
+}
+
+.card-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 3px;
+}
+
+.card-subtitle {
+    font-size: 12px;
+    color: #999;
+}
+
+/* Focus States */
+.focused {
+    outline: 3px solid #e50914;
+    outline-offset: 2px;
+}
+
+.card.focused {
+    transform: scale(1.12) !important;
+    border: 3px solid #e50914 !important;
+    border-radius: 12px !important;
+    box-shadow: 0 0 30px rgba(229, 9, 20, 0.6), 
+                0 10px 40px rgba(0, 0, 0, 0.8),
+                inset 0 0 20px rgba(229, 9, 20, 0.1) !important;
+    z-index: 100 !important;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    outline: none !important;
+}
+
+.card.focused .card-info {
+    transform: translateY(0);
+}
+
+/* Player */
+.player {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    z-index: 1000;
+    display: none;
+}
+
+.player.active {
+    display: block;
+}
+
+.video {
+    width: 100%;
+    height: 100%;
+}
+
+/* Loading */
+.loading {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 24px;
+    z-index: 200;
+}
+
+.loading.active {
+    display: block;
+}
+
+/* Debug Box */
+#debug {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    background: linear-gradient(135deg, #000000, #1a1a1a);
+    color: #00ff00;
+    padding: 15px 25px;
+    font-size: 20px;
+    font-family: 'Courier New', monospace;
+    z-index: 999999;
+    min-width: 400px;
+    border: 2px solid #00ff00;
+    border-radius: 5px;
+    font-weight: bold;
+    box-shadow: 0 0 20px rgba(0,0,0,0.9);
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+/* API Debug Panel */
+#api-debug {
+    position: fixed;
+    bottom: 10px;
+    left: 10px;
+    width: 800px;
+    max-width: 90%;
+    height: 200px;
+    background: rgba(0,0,0,0.95);
+    border: 1px solid #444;
+    border-radius: 5px;
+    padding: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+}
+
+#api-debug h3 {
+    color: #ffff00;
+    margin-bottom: 5px;
+    font-size: 16px;
+}
+
+#api-log {
+    flex: 1;
+    overflow-y: auto;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    line-height: 1.4;
+    color: #0f0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}

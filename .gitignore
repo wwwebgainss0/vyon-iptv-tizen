@@ -1,0 +1,7 @@
+dist/
+build/
+*.wgt
+*.tpk
+.tizen.workflow
+node_modules/
+.DS_Store
