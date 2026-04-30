@@ -45,31 +45,36 @@ window.LicenseManager = (function() {
     function initialize(callback) {
         console.log('[LicenseManager] Initializing...');
 
-        // Get device ID
-        state.deviceId = getDeviceId();
-        console.log('[LicenseManager] Device ID:', state.deviceId);
+        // Pre-load deviceInfo via Platform abstraction so subsequent sync
+        // accesses (buildPayload, registerDevice) read a populated cache.
+        preloadDeviceInfo(function () {
+            // Get device ID
+            state.deviceId = getDeviceId();
+            console.log('[LicenseManager] Device ID:', state.deviceId);
 
-        // Load local license data
-        loadLocalLicense();
+            // Load local license data
+            loadLocalLicense();
 
-        // Check license status
-        checkLicense(function(status) {
-            state.initialized = true;
+            // Check license status
+            checkLicense(function (status) {
+                state.initialized = true;
 
-            // Start periodic check
-            setInterval(function() {
-                checkLicense(function() {});
-            }, CONFIG.CHECK_INTERVAL);
+                // Start periodic check
+                setInterval(function () {
+                    checkLicense(function () {});
+                }, CONFIG.CHECK_INTERVAL);
 
-            if (callback) {
-                callback(status);
-            }
+                if (callback) {
+                    callback(status);
+                }
+            });
         });
     }
 
     // ===== DEVICE ID =====
     function getDeviceId() {
-        // Try to get from ActivationScreen first
+        // Try to get from ActivationScreen first (webOS LGUDID path or
+        // Tizen DEVICE_INFO serial — ActivationScreen routes via Platform).
         if (window.ActivationScreen && window.ActivationScreen.getDeviceId) {
             var id = window.ActivationScreen.getDeviceId();
             if (id && id !== 'UNKNOWN') {
@@ -77,17 +82,9 @@ window.LicenseManager = (function() {
             }
         }
 
-        // Try WebOS device info
-        if (window.webOS && window.webOS.deviceInfo) {
-            try {
-                var info = window.webOS.deviceInfo;
-                if (info.deviceId) {
-                    return info.deviceId;
-                }
-            } catch (e) {}
-        }
-
         // Generate/retrieve persistent ID
+        // Note: legacy direct webOS.deviceInfo.deviceId read removed -
+        // ActivationScreen's Platform-routed path is the canonical source.
         var storedId = localStorage.getItem('ultra_device_id');
         if (storedId) {
             return storedId;
@@ -419,21 +416,41 @@ window.LicenseManager = (function() {
         xhr.send(JSON.stringify(data));
     }
 
-    function getDeviceInfo() {
-        var info = {
-            appVersion: '11.2.0',
-            model: 'Unknown',
-            webosVersion: 'Unknown'
-        };
+    // Cache populated by preloadDeviceInfo() at boot. Subsequent sync
+    // callers (buildPayload at line ~213, registerDevice at line ~413)
+    // read from the cache so the public API stays sync.
+    var deviceInfoCache = {
+        appVersion: '11.2.0',
+        model: 'Unknown',
+        webosVersion: 'Unknown'
+    };
 
-        if (window.webOS && window.webOS.deviceInfo) {
-            try {
-                info.model = window.webOS.deviceInfo.modelName || 'LG TV';
-                info.webosVersion = window.webOS.deviceInfo.sdkVersion || '3.x';
-            } catch (e) {}
+    function preloadDeviceInfo(callback) {
+        if (window.Platform && typeof window.Platform.getDeviceInfo === 'function') {
+            window.Platform.getDeviceInfo(function (info) {
+                if (info) {
+                    deviceInfoCache.model = info.model || deviceInfoCache.model;
+                    // Keep historical key name `webosVersion` for backwards
+                    // compatibility with the API payload schema. On Tizen
+                    // this stores the Tizen build version.
+                    deviceInfoCache.webosVersion = info.osVersion || deviceInfoCache.webosVersion;
+                }
+                if (callback) {
+                    callback();
+                }
+            });
+            return;
         }
+        // Platform abstraction missing - leave defaults in cache.
+        // (platform.js must be loaded before license-manager.js per
+        // index.html script ordering.)
+        if (callback) {
+            callback();
+        }
+    }
 
-        return info;
+    function getDeviceInfo() {
+        return deviceInfoCache;
     }
 
     // ===== OFFLINE VALIDATION =====

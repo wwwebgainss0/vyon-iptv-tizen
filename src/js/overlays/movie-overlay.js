@@ -643,112 +643,38 @@ window.MovieOverlay = (function() {
     }
 
     function launchYouTubeApp(videoId, fullUrl) {
-        // YouTube app IDs to try (in order of preference)
-        var youtubeApps = [
-            {
-                id: 'youtube.leanback.v4',
-                params: { contentTarget: 'https://www.youtube.com/watch?v=' + videoId }
-            },
-            {
-                id: 'com.webos.app.youtube',
-                params: { contentTarget: 'https://www.youtube.com/watch?v=' + videoId }
-            },
-            {
-                id: 'youtube.leanback.v4',
-                params: { v: videoId }
-            }
-        ];
+        // Route through Platform abstraction.
+        // webOS YouTube app id: 'com.webos.app.youtube' (LG TV).
+        // Tizen YouTube app id: '111299001912' (Samsung TV - PLACEHOLDER,
+        // verify against your Samsung TV's Smart Hub before release).
+        var appHints = {
+            webos: 'com.webos.app.youtube',
+            tizen: '111299001912'
+        };
+        var params = {
+            contentTarget: 'https://www.youtube.com/watch?v=' + videoId,
+            target: fullUrl
+        };
 
-        // Browser fallbacks
-        var browserApps = [
-            { id: 'com.webos.app.browser', params: { target: fullUrl } },
-            { id: 'com.palm.app.browser', params: { target: fullUrl } },
-            { id: 'com.lge.app.browser', params: { target: fullUrl } }
-        ];
-
-        var allApps = youtubeApps.concat(browserApps);
-        var currentIndex = 0;
-
-        function tryNext() {
-            if (currentIndex >= allApps.length) {
-                // Final fallback: window.open
-                console.log('[MovieOverlay] All apps failed, trying window.open');
-                try {
-                    window.open(fullUrl, '_blank');
-                    showToast('Browser geoeffnet');
-                } catch (e) {
-                    showToast('Keine App gefunden');
+        if (window.Platform && typeof window.Platform.launchExternalApp === 'function') {
+            window.Platform.launchExternalApp(appHints, params, function (success) {
+                if (success) {
+                    console.log('[MovieOverlay] YouTube launched');
+                    showToast('YouTube geoeffnet');
+                } else {
+                    console.log('[MovieOverlay] All app-launch tiers failed');
+                    showToast('App nicht verfuegbar');
                 }
-                return;
-            }
-
-            var app = allApps[currentIndex];
-            currentIndex++;
-
-            console.log('[MovieOverlay] Trying app: ' + app.id);
-
-            // Use PalmServiceBridge (native WebOS 3.x API)
-            if (window.PalmServiceBridge) {
-                try {
-                    var bridge = new PalmServiceBridge();
-                    bridge.onservicecallback = function(response) {
-                        try {
-                            var res = JSON.parse(response);
-                            if (res.returnValue === true) {
-                                console.log('[MovieOverlay] App launched: ' + app.id);
-                                showToast('YouTube geoeffnet');
-                            } else {
-                                console.log('[MovieOverlay] App failed: ' + app.id);
-                                tryNext();
-                            }
-                        } catch (e) {
-                            tryNext();
-                        }
-                    };
-
-                    var params = JSON.stringify({
-                        id: app.id,
-                        params: app.params
-                    });
-
-                    bridge.call('luna://com.webos.applicationManager/launch', params);
-                } catch (e) {
-                    console.log('[MovieOverlay] PalmServiceBridge error: ' + e);
-                    tryNext();
-                }
-            }
-            // Fallback: webOS.service.request (newer WebOS)
-            else if (window.webOS && window.webOS.service && window.webOS.service.request) {
-                try {
-                    window.webOS.service.request('luna://com.webos.applicationManager', {
-                        method: 'launch',
-                        parameters: {
-                            id: app.id,
-                            params: app.params
-                        },
-                        onSuccess: function(res) {
-                            console.log('[MovieOverlay] App launched: ' + app.id);
-                            showToast('YouTube geoeffnet');
-                        },
-                        onFailure: function(err) {
-                            console.log('[MovieOverlay] App failed: ' + app.id);
-                            tryNext();
-                        }
-                    });
-                } catch (e) {
-                    console.log('[MovieOverlay] webOS.service error: ' + e);
-                    tryNext();
-                }
-            }
-            // No Luna API available - skip to next app
-            else {
-                console.log('[MovieOverlay] No Luna API, skipping to window.open');
-                currentIndex = allApps.length; // Skip to final fallback
-                tryNext();
+            });
+        } else {
+            // Platform missing - last-resort window.open
+            try {
+                window.open(fullUrl, '_blank');
+                showToast('Browser geoeffnet');
+            } catch (e) {
+                showToast('Keine App gefunden');
             }
         }
-
-        tryNext();
     }
 
     function showToast(message) {

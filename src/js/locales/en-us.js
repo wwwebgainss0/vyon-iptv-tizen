@@ -122,6 +122,7 @@ window.LOCALES['en-US'] = {
     'settings.app_version': 'App Version',
     'settings.device_model': 'Device Model',
     'settings.webos_version': 'WebOS Version',
+    'settings.tizen_version': 'Tizen Version',
     'settings.rate_app': 'Rate App',
     'settings.rate_app_desc': 'Rate in LG Content Store',
     'settings.support': 'Support & Help',

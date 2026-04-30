@@ -274,29 +274,18 @@ window.ActivationScreen = (function() {
 
     // ===== DEVICE ID =====
     function getDeviceId() {
-        // Try WebOS 3+ LGUDID first
-        if (window.webOS && window.webOS.service && window.webOS.service.request) {
-            try {
-                window.webOS.service.request('luna://com.webos.service.sm', {
-                    method: 'deviceid/getIDs',
-                    parameters: {
-                        idType: ['LGUDID']
-                    },
-                    onSuccess: function(result) {
-                        if (result && result.idList && result.idList.length > 0) {
-                            state.deviceId = result.idList[0].idValue;
-                            onDeviceIdReady();
-                        } else {
-                            getOrCreateUUID();
-                        }
-                    },
-                    onFailure: function(error) {
-                        getOrCreateUUID();
-                    }
-                });
-            } catch (e) {
-                getOrCreateUUID();
-            }
+        // Route through Platform abstraction. webOS path queries
+        // luna://com.webos.service.sm; Tizen path uses tizen.systeminfo
+        // DEVICE_INFO.serialNumber. Both fall back to UUID via callback.
+        if (window.Platform && typeof window.Platform.getSerialNumber === 'function') {
+            window.Platform.getSerialNumber(function (serial) {
+                if (serial) {
+                    state.deviceId = serial;
+                    onDeviceIdReady();
+                } else {
+                    getOrCreateUUID();
+                }
+            });
         } else {
             getOrCreateUUID();
         }

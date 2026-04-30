@@ -122,6 +122,7 @@ window.LOCALES['de-DE'] = {
     'settings.app_version': 'App-Version',
     'settings.device_model': 'Geraetemodell',
     'settings.webos_version': 'WebOS-Version',
+    'settings.tizen_version': 'Tizen-Version',
     'settings.rate_app': 'App bewerten',
     'settings.rate_app_desc': 'Im LG Content Store bewerten',
     'settings.support': 'Support & Hilfe',

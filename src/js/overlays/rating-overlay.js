@@ -395,45 +395,35 @@ window.RatingOverlay = (function() {
     }
 
     function openStore() {
-        console.log('[RatingOverlay] Opening LG Content Store...');
+        console.log('[RatingOverlay] Opening store via Platform abstraction...');
 
-        var params = JSON.stringify({
-            id: CONFIG.STORE_APP_ID,
-            params: { id: CONFIG.APP_ID }
-        });
+        // Per-platform store-app hints. webOS = LG Content Store; Tizen
+        // route is a PLACEHOLDER - verify the actual Samsung Apps deep-link
+        // against the test device before release.
+        var appHints = {
+            webos: CONFIG.STORE_APP_ID,
+            tizen: 'com.samsung.tv.store'
+        };
+        var params = { id: CONFIG.APP_ID };
 
-        if (window.PalmServiceBridge) {
+        function markRated() {
             try {
-                var bridge = new PalmServiceBridge();
-                bridge.onservicecallback = function(response) {
-                    console.log('[RatingOverlay] PalmServiceBridge response:', response);
-                    try {
-                        localStorage.setItem(STORAGE_KEYS.RATING_STATUS, 'rated');
-                    } catch (e) {}
-                };
-                bridge.call('luna://com.webos.applicationManager/launch', params);
-                return;
-            } catch (e) {
-                console.error('[RatingOverlay] PalmServiceBridge error:', e);
-            }
+                localStorage.setItem(STORAGE_KEYS.RATING_STATUS, 'rated');
+            } catch (e) {}
         }
 
-        if (window.webOS && window.webOS.service && window.webOS.service.request) {
-            webOS.service.request('luna://com.webos.applicationManager', {
-                method: 'launch',
-                parameters: JSON.parse(params),
-                onSuccess: function() {
-                    console.log('[RatingOverlay] Store launched successfully');
-                    try { localStorage.setItem(STORAGE_KEYS.RATING_STATUS, 'rated'); } catch (e) {}
-                },
-                onFailure: function(err) {
-                    console.error('[RatingOverlay] Failed to launch store:', err);
-                    try { localStorage.setItem(STORAGE_KEYS.RATING_STATUS, 'rated'); } catch (e) {}
+        if (window.Platform && typeof window.Platform.launchExternalApp === 'function') {
+            window.Platform.launchExternalApp(appHints, params, function (success) {
+                if (success) {
+                    console.log('[RatingOverlay] Store launched');
+                } else {
+                    console.warn('[RatingOverlay] Store launch failed - marking as rated anyway');
                 }
+                markRated();
             });
         } else {
-            console.log('[RatingOverlay] WebOS API not available, marking as rated');
-            try { localStorage.setItem(STORAGE_KEYS.RATING_STATUS, 'rated'); } catch (e) {}
+            console.log('[RatingOverlay] Platform abstraction missing - marking as rated');
+            markRated();
         }
     }
 
