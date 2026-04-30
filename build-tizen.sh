@@ -24,9 +24,12 @@ fi
 rm -rf "$OUT"
 mkdir -p "$OUT"
 
+# Tizen build-web resolves -out relative to the project dir (SRC), not the
+# current working directory, so the actual build output ends up at
+# $SRC/$OUT/build, not $OUT/build. Reflect that when cd'ing into the result.
 tizen build-web -- "$SRC" -out "$OUT/build"
 
-cd "$OUT/build"
+cd "$SRC/$OUT/build"
 tizen package -t wgt -s "$PROFILE"
 
 # Tizen names the .wgt after the application name in config.xml ("VYON IPTV")
@@ -36,6 +39,9 @@ if [ -z "$WGT_FILE" ]; then
     echo "[build-tizen] ERROR: no .wgt produced." >&2
     exit 1
 fi
-mv "$WGT_FILE" "../com.vyoniptv.tizen_${VERSION}.wgt"
+# Move out of $SRC/$OUT/build all the way to repo-root $OUT, so the final
+# artifact path is dist/com.vyoniptv.tizen_<ver>.wgt (matches the CI artifact
+# upload glob `dist/*.wgt`).
+mv "$WGT_FILE" "../../../$OUT/com.vyoniptv.tizen_${VERSION}.wgt"
 
-echo "[build-tizen] OK -> dist/com.vyoniptv.tizen_${VERSION}.wgt"
+echo "[build-tizen] OK -> $OUT/com.vyoniptv.tizen_${VERSION}.wgt"

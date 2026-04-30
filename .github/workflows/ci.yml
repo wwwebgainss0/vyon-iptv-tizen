@@ -40,7 +40,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          # No cache: npm — repo has no package.json yet (Phase 2 will add it)
 
       - name: Install dependencies (if package.json present)
         run: |
@@ -96,7 +96,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          # No cache: npm — repo has no package.json yet (Phase 2 will add it)
 
       - name: Cache Tizen Studio install
         id: tizen-cache
