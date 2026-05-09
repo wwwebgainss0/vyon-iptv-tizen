@@ -43,19 +43,13 @@ jobs:
         # WebOS-side Phase 2 abstraction did not land before the sync, or that
         # someone bypassed it on the Tizen side.
         #
-        # NOTE: continue-on-error is currently TRUE because Phase 2 of the
-        # 2026-04-30 hardening plan only abstracted the four highest-traffic
-        # call sites (app-main.js, license-manager.js, activation-screen.js,
-        # movie-overlay.js + rating-overlay.js, settings-screen.js). Three
-        # files still use direct webOS.* APIs:
-        #   - src/js/user/parental-control.js
-        #   - src/js/utils/sleep-timer.js
-        #   - src/js/utils/voice-control.js
-        # These will be migrated in a follow-up sweep on the WebOS side, and
-        # this guard becomes hard-fail when the count reaches zero.
-        # TODO: remove `continue-on-error: true` once the remaining 3 files
-        # route through Platform.* on the WebOS side.
-        continue-on-error: true
+        # HARD-FAIL since 2026-05-08 (PR feat/platform-abstraction-completion-2026-05-08):
+        # the three trailing files (voice-control, sleep-timer, parental-control)
+        # have been migrated on the WebOS side via PR #11 and pulled in here via
+        # scripts/sync-from-webos.sh. Zero direct webOS.X matches remain in
+        # src/js/. The previous `continue-on-error: true` escape hatch has been
+        # removed — any direct webOS.X call leaking into synced source fails CI
+        # on PRs targeting main.
         run: |
           MATCHES=$(grep -rn 'webOS\.' src/js/ \
             | grep -v 'src/js/core/platform.js' \
