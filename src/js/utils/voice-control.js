@@ -83,29 +83,26 @@ window.VoiceControl = (function() {
 
     // ===== SUPPORT CHECK =====
     function checkSupport() {
-        // Check if WebOS voice service is available
-        state.supported = !!(window.webOS && window.webOS.service && window.webOS.service.request);
+        // Voice service rides on the webOS Luna IPC channel; on Tizen / browser
+        // there is no SmartTV-mic equivalent for IPTV apps, so support stays false.
+        state.supported = !!(window.Platform && window.Platform.canUseLunaService && window.Platform.canUseLunaService());
 
         // Additional check for voice-specific service
         if (state.supported) {
             // Try to ping the voice service
-            try {
-                webOS.service.request(CONFIG.LUNA_SERVICE, {
-                    method: 'getState',
-                    parameters: {},
-                    onSuccess: function() {
-                        state.supported = true;
-                        console.log('[VoiceControl] Voice service available');
-                    },
-                    onFailure: function() {
-                        // Service might not be available on all devices
-                        state.supported = false;
-                        console.log('[VoiceControl] Voice service not available');
-                    }
-                });
-            } catch (e) {
-                state.supported = false;
-            }
+            window.Platform.requestLunaService(CONFIG.LUNA_SERVICE, {
+                method: 'getState',
+                parameters: {},
+                onSuccess: function() {
+                    state.supported = true;
+                    console.log('[VoiceControl] Voice service available');
+                },
+                onFailure: function() {
+                    // Service might not be available on all devices
+                    state.supported = false;
+                    console.log('[VoiceControl] Voice service not available');
+                }
+            });
         }
     }
 
@@ -146,33 +143,35 @@ window.VoiceControl = (function() {
         state.active = true;
         showIndicator();
 
-        // Subscribe to voice recognition
-        try {
-            state.subscription = webOS.service.request(CONFIG.LUNA_SERVICE, {
-                method: 'getResponse',
-                parameters: {
-                    subscribe: true
-                },
-                onSuccess: function(response) {
-                    if (response.text) {
-                        handleVoiceInput(response.text);
-                    }
-                },
-                onFailure: function(error) {
-                    console.error('[VoiceControl] Voice error:', error);
-                    stop();
+        // Subscribe to voice recognition. Platform.requestLunaService preserves
+        // the subscription handle on webOS and routes throws to onFailure for us.
+        state.subscription = window.Platform.requestLunaService(CONFIG.LUNA_SERVICE, {
+            method: 'getResponse',
+            parameters: {
+                subscribe: true
+            },
+            onSuccess: function(response) {
+                if (response.text) {
+                    handleVoiceInput(response.text);
                 }
-            });
+            },
+            onFailure: function(error) {
+                console.error('[VoiceControl] Voice error:', error);
+                stop();
+            }
+        });
 
-            console.log('[VoiceControl] Started listening');
-            return true;
-
-        } catch (e) {
-            console.error('[VoiceControl] Failed to start:', e);
+        if (!state.subscription) {
+            // Platform reported luna-unsupported (Tizen / browser); state.active
+            // already flipped, hide UI and bail out.
+            console.error('[VoiceControl] Failed to start: luna-unsupported');
             state.active = false;
             hideIndicator();
             return false;
         }
+
+        console.log('[VoiceControl] Started listening');
+        return true;
     }
 
     function stop() {
@@ -358,10 +357,10 @@ window.VoiceControl = (function() {
     }
 
     function adjustVolume(up) {
-        // Use WebOS volume control
-        if (window.webOS && window.webOS.service && window.webOS.service.request) {
+        // Use WebOS volume control via the Platform Luna abstraction
+        if (window.Platform && window.Platform.canUseLunaService && window.Platform.canUseLunaService()) {
             var method = up ? 'volumeUp' : 'volumeDown';
-            webOS.service.request('luna://com.webos.audio', {
+            window.Platform.requestLunaService('luna://com.webos.audio', {
                 method: method,
                 parameters: {},
                 onSuccess: function() {},
@@ -373,8 +372,8 @@ window.VoiceControl = (function() {
     }
 
     function toggleMute() {
-        if (window.webOS && window.webOS.service && window.webOS.service.request) {
-            webOS.service.request('luna://com.webos.audio', {
+        if (window.Platform && window.Platform.canUseLunaService && window.Platform.canUseLunaService()) {
+            window.Platform.requestLunaService('luna://com.webos.audio', {
                 method: 'setMuted',
                 parameters: { muted: true },
                 onSuccess: function() {},
