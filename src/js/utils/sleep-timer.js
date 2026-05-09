@@ -187,9 +187,13 @@ window.SleepTimer = (function() {
     function turnOffTV() {
         cancel();
 
-        // Try WebOS Luna API first
-        if (typeof webOS !== 'undefined' && webOS.service && webOS.service.request) {
-            webOS.service.request('luna://com.webos.service.tvpower', {
+        // Try WebOS tvpower Luna service via Platform abstraction. On Tizen /
+        // browser, requestLunaService invokes onFailure({errorText:'luna-unsupported'})
+        // and we fall through to fallbackClose() — Tizen has no app-callable
+        // shutdown API for SmartTV-mode apps (AppControl can't power-off the
+        // panel), so this gracefully degrades to closing the app instead.
+        if (window.Platform && window.Platform.canUseLunaService && window.Platform.canUseLunaService()) {
+            window.Platform.requestLunaService('luna://com.webos.service.tvpower', {
                 method: 'turnOff',
                 onSuccess: function(res) {
                     // TV turning off...
@@ -200,15 +204,17 @@ window.SleepTimer = (function() {
                 }
             });
         } else {
-            // No WebOS API - try fallback
+            // No Luna available - try fallback close immediately.
             fallbackClose();
         }
     }
 
     function fallbackClose() {
-        // Try to close the app (WebOS specific)
-        if (typeof webOS !== 'undefined' && webOS.platformBack) {
-            webOS.platformBack();
+        // Programmatic back / close. On webOS this triggers webOS.platformBack();
+        // on Tizen we synthesize a tizenhwkey 'back' event; browser falls back
+        // to window.close().
+        if (window.Platform && typeof window.Platform.triggerBack === 'function') {
+            window.Platform.triggerBack();
         } else if (window.close) {
             window.close();
         }

@@ -13,8 +13,24 @@
  *   window.Platform.getDeviceInfo(cb)        - cb({ model, osVersion, serial })
  *   window.Platform.getSerialNumber(cb)      - cb(serialOrNull)
  *   window.Platform.launchExternalApp(appHints, params, cb) - cb(success)
+ *   window.Platform.canUseLunaService()      - boolean (webOS Luna API available?)
+ *   window.Platform.requestLunaService(url, opts) - thin webOS Luna wrapper
+ *   window.Platform.triggerBack()            - programmatic back-button
  *
  * appHints shape: { webos: '<webos-app-id>', tizen: '<tizen-app-id>' }
+ *
+ * Luna-service notes:
+ *   - requestLunaService is webOS-only (Tizen has no equivalent generic IPC
+ *     for SmartTV apps for the same set of services). On Tizen / browser the
+ *     wrapper invokes opts.onFailure({errorText:'luna-unsupported'}) and
+ *     returns null. Callers must tolerate a null return + onFailure invocation.
+ *
+ * triggerBack notes:
+ *   - On webOS this calls webOS.platformBack() (root-scene exit semantics).
+ *   - On Tizen this dispatches a synthetic 'tizenhwkey' DOM event with
+ *     keyName:'back', which Platform.onBack listeners (and any other
+ *     tizenhwkey handlers) will pick up.
+ *   - On browser it falls back to window.close().
  */
 (function () {
     'use strict';
@@ -173,6 +189,98 @@
                 }
             }
             tryWindowOpen(params, callback);
+        },
+
+        // ----- Luna Service Wrapper (webOS-only) ---------------------------
+        // canUseLunaService() - cheap synchronous availability probe used by
+        // call-sites that want to skip the request entirely on Tizen/browser.
+        canUseLunaService: function () {
+            return current === 'webos'
+                && typeof window !== 'undefined'
+                && !!window.webOS
+                && !!window.webOS.service
+                && typeof window.webOS.service.request === 'function';
+        },
+
+        // requestLunaService(url, opts) - thin webOS.service.request wrapper.
+        // On webOS: identical surface to webOS.service.request, returning the
+        //   subscription handle (or whatever request() returns). Internal
+        //   try/catch routes throws to opts.onFailure for caller simplicity.
+        // On Tizen / browser: invokes opts.onFailure({errorText:'luna-unsupported'})
+        //   asynchronously via setTimeout(0) and returns null so callers can
+        //   short-circuit without crashing.
+        requestLunaService: function (url, opts) {
+            opts = opts || {};
+            if (current === 'webos'
+                && typeof window !== 'undefined'
+                && window.webOS
+                && window.webOS.service
+                && typeof window.webOS.service.request === 'function') {
+                try {
+                    return window.webOS.service.request(url, opts);
+                } catch (e) {
+                    if (typeof opts.onFailure === 'function') {
+                        opts.onFailure({ errorText: 'luna-throw', errorCode: -1 });
+                    }
+                    return null;
+                }
+            }
+            // Non-webOS: emit failure asynchronously to mirror real Luna timing.
+            if (typeof opts.onFailure === 'function') {
+                setTimeout(function () {
+                    opts.onFailure({ errorText: 'luna-unsupported', errorCode: -1 });
+                }, 0);
+            }
+            return null;
+        },
+
+        // ----- Programmatic Back Button -----------------------------------
+        // Used when an in-app flow needs to invoke the platform's "back" action
+        // (e.g. sleep-timer fallback close, cancelling a parental PIN prompt).
+        // Sleep-timer used to call webOS.platformBack() with window.close()
+        // fallback; this preserves that exact behavior on webOS, mirrors it on
+        // Tizen via the documented synthetic tizenhwkey dispatch, and falls
+        // back to window.close() in the browser harness.
+        triggerBack: function () {
+            try {
+                if (current === 'webos'
+                    && typeof window !== 'undefined'
+                    && window.webOS
+                    && typeof window.webOS.platformBack === 'function') {
+                    window.webOS.platformBack();
+                    return;
+                }
+                if (current === 'tizen'
+                    && typeof document !== 'undefined'
+                    && typeof document.createEvent === 'function') {
+                    var evt = null;
+                    try {
+                        evt = document.createEvent('CustomEvent');
+                        if (evt && typeof evt.initCustomEvent === 'function') {
+                            evt.initCustomEvent('tizenhwkey', true, true, { keyName: 'back' });
+                        }
+                    } catch (ce) {
+                        evt = null;
+                    }
+                    if (!evt) {
+                        try {
+                            evt = document.createEvent('Event');
+                            evt.initEvent('tizenhwkey', true, true);
+                        } catch (ee) {
+                            evt = null;
+                        }
+                    }
+                    if (evt) {
+                        // Tizen onBack handlers read e.keyName.
+                        evt.keyName = 'back';
+                        document.dispatchEvent(evt);
+                        return;
+                    }
+                }
+            } catch (e) {}
+            if (typeof window !== 'undefined' && typeof window.close === 'function') {
+                try { window.close(); } catch (e) {}
+            }
         }
     };
 

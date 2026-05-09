@@ -99,9 +99,13 @@ window.ParentalControl = (function() {
                 title: 'App-PIN eingeben',
                 onComplete: function(enteredPIN) {
                     if (enteredPIN === null) {
-                        // User cancelled - close app
-                        if (window.webOS && window.webOS.platformBack) {
-                            window.close();
+                        // User cancelled - close app via the Platform abstraction.
+                        // On webOS this calls webOS.platformBack() (root-scene exit);
+                        // on Tizen it dispatches a synthetic tizenhwkey 'back' event;
+                        // browser fallback is window.close(). Behavioral parity with
+                        // the previous webOS-gated window.close() preserved.
+                        if (window.Platform && typeof window.Platform.triggerBack === 'function') {
+                            window.Platform.triggerBack();
                         }
                         return;
                     }
